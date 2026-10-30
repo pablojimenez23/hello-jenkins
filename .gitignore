@@ -1,0 +1,6 @@
+__pycache__/
+*.db
+reports/
+sca-deps/
+.venv/
+.pytest_cache/

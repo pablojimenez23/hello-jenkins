@@ -1,0 +1,7 @@
+.git
+jenkins
+reports
+sca-deps
+__pycache__
+*.db
+.venv
