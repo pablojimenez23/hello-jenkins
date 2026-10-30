@@ -1,7 +1,8 @@
-# app.py - Aplicación Flask con fallos de seguridad A PROPÓSITO (solo para fines educativos).
-# No uses este código en producción.
+# app.py - Aplicación Flask corregida
+import ipaddress
 import os
 import sqlite3
+import subprocess
 
 from flask import Flask, request, render_template_string
 
@@ -34,31 +35,36 @@ def health():
     return {"status": "ok"}
 
 
-# FALLO 1: XSS reflejado, el parámetro se inserta en la plantilla sin escapar
+# CORREGIDO: XSS, el valor se pasa como variable y Jinja lo escapa
 @app.route("/hello")
 def hello():
     name = request.args.get("name", "Mundo")
-    return render_template_string(f"<h1>Hola, {name}!</h1>")
+    return render_template_string("<h1>Hola, {{ name }}!</h1>", name=name)
 
 
-# FALLO 2: SQL Injection, la consulta se arma concatenando texto
+# CORREGIDO: SQL Injection, consulta parametrizada
 @app.route("/user")
 def get_user():
     user_id = request.args.get("id", "1")
     conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(f"SELECT * FROM users WHERE id = {user_id}").fetchall()
+    rows = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchall()
     conn.close()
     return str(rows)
 
 
-# FALLO 3: inyección de comandos, el parámetro llega a una shell
+# CORREGIDO: inyección de comandos, sin shell y validando que sea una IP
 @app.route("/ping")
 def ping():
     host = request.args.get("host", "127.0.0.1")
-    return os.popen(f"echo pong a {host}").read()
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return "host inválido", 400
+    out = subprocess.run(["echo", "pong a", host], capture_output=True, text=True, check=False)
+    return out.stdout
 
 
 if __name__ == "__main__":
     init_db()
-    # FALLO 4: debug=True expone la consola de Werkzeug y permite ejecutar código
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # CORREGIDO: sin debug=True
+    app.run(host="0.0.0.0", port=5000)
